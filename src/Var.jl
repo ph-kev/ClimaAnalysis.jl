@@ -102,11 +102,27 @@ function OutputVar(attribs, dims, dim_attribs, data)
 
         dims_tuple = tuple(values(dims)...)
 
+        intp_ec_bc_helper(dim_name) =
+            if conventional_dim_name(dim_name) == "longitude"
+                return Intp.Periodic()
+            elseif conventional_dim_name(dim_name) == "latitude"
+                return Intp.Flat()
+            else
+                return Intp.Throw()
+            end
+        ep_bc = (intp_ec_bc_helper(dim_name) for dim_name in keys(dims))
+        ep_bc = tuple(ep_bc...)
+        for (_, dim_arr) in dims
+            if eltype(dim_arr) == Dates.DateTime
+                ep_bc = Intp.Throw()
+            end
+        end
+
         # TODO: Make this lazy: we should compute the spline the first time we use
         # it, not when we create the object
         itp = Intp.extrapolate(
             Intp.interpolate(dims_tuple, data, Intp.Gridded(Intp.Linear())),
-            Intp.Throw(),
+            ep_bc,
         )
     end
 
