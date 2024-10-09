@@ -324,9 +324,24 @@ function Visualize.plot_bias_on_globe!(
         :mask => Dict(),
     ),
 )
-    bias_var = ClimaAnalysis.bias(sim, obs)
+
+    if isnothing(mask)
+        apply_mask = nothing
+    elseif mask == Visualize.landmask()
+        apply_mask = ClimaAnalysis.apply_landmask
+    elseif mask isa GeoMakie.GeoJSON.FeatureCollection
+        apply_mask = ClimaAnalysis.apply_oceanmask
+    else
+        apply_mask = nothing
+        @warn "Mask not recognized, overplotting it. The colorbar will not be correct"
+    end
+
+    bias_var = ClimaAnalysis.bias(sim, obs, mask = apply_mask)
     global_bias = round(bias_var.attributes["global_bias"], sigdigits = 3)
-    rmse = round(ClimaAnalysis.global_rmse(sim, obs), sigdigits = 3)
+    rmse = round(
+        ClimaAnalysis.global_rmse(sim, obs, mask = apply_mask),
+        sigdigits = 3,
+    )
     units = ClimaAnalysis.units(bias_var)
 
     bias_var.attributes["long_name"] *= " (RMSE: $rmse $units, Global bias: $global_bias $units)"
