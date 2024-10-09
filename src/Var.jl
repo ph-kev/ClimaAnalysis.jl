@@ -1163,7 +1163,7 @@ function _check_sim_obs_units_consistent(sim::OutputVar, obs::OutputVar)
 end
 
 """
-    bias(sim::OutputVar, obs::OutputVar)
+    bias(sim::OutputVar, obs::OutputVar; mask = nothing)
 
 Return a `OutputVar` whose data is the bias (`sim.data - obs.data`) and compute the global
 bias of `data` in `sim` and `obs` over longitude and latitude. The result is stored in
@@ -1178,7 +1178,7 @@ name of the returned `OutputVar` will be updated to reflect that a bias is compu
 See also [`global_bias`](@ref), [`squared_error`](@ref), [`global_mse`](@ref),
 [`global_rmse`](@ref).
 """
-function bias(sim::OutputVar, obs::OutputVar)
+function bias(sim::OutputVar, obs::OutputVar; mask = nothing)
     _check_sim_obs_units_consistent(sim, obs)
 
     # Resample obs on sim to ensure the size of data in sim and obs are the same and the
@@ -1203,16 +1203,16 @@ function bias(sim::OutputVar, obs::OutputVar)
     end
 
     # Compute global bias and store it as an attribute
+    !isnothing(mask) && (bias = mask(bias))
     integrated_bias = integrate_lonlat(bias).data
-    normalization =
-        integrate_lonlat(
-            OutputVar(
-                bias.attributes,
-                bias.dims,
-                bias.dim_attributes,
-                ones(size(bias.data)),
-            ),
-        ).data
+    ones_var = OutputVar(
+        bias.attributes,
+        bias.dims,
+        bias.dim_attributes,
+        ones(size(bias.data)),
+    )
+    !isnothing(mask) && (ones_var = mask(ones_var))
+    normalization = integrate_lonlat(ones_var).data
     # Do ./ instead of / because we are dividing between zero dimensional arrays
     global_bias = integrated_bias ./ normalization
     ret_attributes["global_bias"] = global_bias
@@ -1220,7 +1220,7 @@ function bias(sim::OutputVar, obs::OutputVar)
 end
 
 """
-    global_bias(sim::OutputVar, obs::OutputVar)
+    global_bias(sim::OutputVar, obs::OutputVar; mask = nothing)
 
 Return the global bias of `data` in `sim` and `obs` over longitude and latitude.
 
@@ -1232,13 +1232,13 @@ resampling `obs` on `sim`.
 See also [`bias`](@ref), [`squared_error`](@ref), [`global_mse`](@ref),
 [`global_rmse`](@ref).
 """
-function global_bias(sim::OutputVar, obs::OutputVar)
-    bias_var = bias(sim, obs)
+function global_bias(sim::OutputVar, obs::OutputVar; mask = nothing)
+    bias_var = bias(sim, obs, mask = mask)
     return bias_var.attributes["global_bias"]
 end
 
 """
-    squared_error(sim::OutputVar, obs::OutputVar)
+    squared_error(sim::OutputVar, obs::OutputVar; mask = nothing)
 
 Return a `OutputVar` whose data is the squared error (`(sim.data - obs.data)^2`) and compute
 the global mean squared error (MSE) and global root mean squared error (RMSE) of `data` in
@@ -1253,7 +1253,7 @@ name of the returned `OutputVar` will be updated to reflect that a squared error
 
 See also [`global_mse`](@ref), [`global_rmse`](@ref), [`bias`](@ref), [`global_bias`](@ref).
 """
-function squared_error(sim::OutputVar, obs::OutputVar)
+function squared_error(sim::OutputVar, obs::OutputVar; mask = nothing)
     _check_sim_obs_units_consistent(sim, obs)
 
     # Resample obs on sim to ensure the size of data in sim and obs are the same and the
@@ -1282,16 +1282,16 @@ function squared_error(sim::OutputVar, obs::OutputVar)
     end
 
     # Compute global mse and global rmse and store it as an attribute
+    !isnothing(mask) && (squared_error = mask(squared_error))
     integrated_squared_error = integrate_lonlat(squared_error).data
-    normalization =
-        integrate_lonlat(
-            OutputVar(
-                squared_error.attributes,
-                squared_error.dims,
-                squared_error.dim_attributes,
-                ones(size(squared_error.data)),
-            ),
-        ).data
+    ones_var = OutputVar(
+        squared_error.attributes,
+        squared_error.dims,
+        squared_error.dim_attributes,
+        ones(size(squared_error.data)),
+    )
+    !isnothing(mask) && (ones_var = mask(ones_var))
+    normalization = integrate_lonlat(ones_var).data
     # Do ./ instead of / because we are dividing between zero dimensional arrays
     mse = integrated_squared_error ./ normalization
     ret_attributes["global_mse"] = mse
@@ -1305,7 +1305,7 @@ function squared_error(sim::OutputVar, obs::OutputVar)
 end
 
 """
-    global_mse(sim::OutputVar, obs::OutputVar)
+    global_mse(sim::OutputVar, obs::OutputVar; mask = nothing)
 
 Return the global mean squared error (MSE) of `data` in `sim` and `obs` over longitude and
 latitude.
@@ -1317,13 +1317,13 @@ for longitude and latitude should be degrees. Resampling is done automatically b
 
 See also [`squared_error`](@ref), [`global_rmse`](@ref), [`bias`](@ref), [`global_bias`](@ref).
 """
-function global_mse(sim::OutputVar, obs::OutputVar)
-    squared_error_var = squared_error(sim, obs)
+function global_mse(sim::OutputVar, obs::OutputVar; mask = nothing)
+    squared_error_var = squared_error(sim, obs, mask = mask)
     return squared_error_var.attributes["global_mse"]
 end
 
 """
-    global_rmse(sim::OutputVar, obs::OutputVar)
+    global_rmse(sim::OutputVar, obs::OutputVar; mask = nothing)
 
 Return the global root mean squared error (RMSE) of `data` in `sim` and `obs` over longitude
 and latitude.
@@ -1335,8 +1335,8 @@ for longitude and latitude should be degrees. Resampling is done automatically b
 
 See also [`squared_error`](@ref), [`global_mse`](@ref), [`bias`](@ref), [`global_bias`](@ref).
 """
-function global_rmse(sim::OutputVar, obs::OutputVar)
-    squared_error_var = squared_error(sim, obs)
+function global_rmse(sim::OutputVar, obs::OutputVar; mask = nothing)
+    squared_error_var = squared_error(sim, obs, mask = mask)
     return squared_error_var.attributes["global_rmse"]
 end
 
