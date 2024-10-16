@@ -1655,6 +1655,27 @@ function _apply_lonlat_mask(var, mask::AbstractString)
 end
 
 """
+    replace_nan(var::OutputVar, val)
+
+Replace all `NaN`s in `data` of `var` with `val`.
+
+This function is useful if there are NaNs in the data. For instance, you want to use the
+ocean mask, but there are NaNs in the ocean. You can replace all the NaNs with `val` and
+apply the ocean mask afterward.
+"""
+function replace_nan(var::OutputVar, val)
+    # Replace all NaNs with val
+    val_same_type = eltype(var.data)(val)
+    no_nan_data = replace(var.data, NaN => val_same_type)
+
+    # Remake OutputVar with new data
+    ret_attribs = deepcopy(var.attributes)
+    ret_dims = deepcopy(var.dims)
+    ret_dim_attributes = deepcopy(var.dim_attributes)
+    return OutputVar(ret_attribs, ret_dims, ret_dim_attributes, no_nan_data)
+end
+
+"""
     overload_binary_op(op)
 
 Add methods to overload the given binary `op`erator for `OutputVars` and `Real`s.
