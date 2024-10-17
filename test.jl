@@ -65,6 +65,8 @@ str14 = "m^-2 s s"
 str15 = "m^-2 s^3 s"
 str16 = "m^-2 s s^3"
 str17 = "m s^-1 / (m s)"
+# TODO: "(m s) (s)"
+
 @testset "Constructors and helper functions" begin
     @test uparse(parse_units(str1)) |> string == "m"
     @test uparse(parse_units(str2)) |> string == "m"
