@@ -7,7 +7,7 @@ function parse_units(expr::AbstractString)
         "Number of opening and closing parentheses are not the same",
     )
     # Split the input into matches, handling parentheses and other characters
-    matches = collect(eachmatch(r"\(.*\)\^\S*|\(.*\)|\S+", expr))
+    matches = collect(eachmatch(r"\(([^()]|(?R))*\)\^\S+|\(([^()]|(?R))*\)|\S+", expr))
 
     result = String[]  # To store the final result
 
@@ -47,7 +47,8 @@ function parse_units(expr::AbstractString)
     return join(final_expr, " ")
 end
 
-# Positive cases
+# Positive cases - should be parseable
+# Include cases that are already parseable by Unitful, but useful to have for testing
 str1 = "m"
 str2 = "(m)"
 str3 = "((((m s))))"
@@ -65,7 +66,9 @@ str14 = "m^-2 s s"
 str15 = "m^-2 s^3 s"
 str16 = "m^-2 s s^3"
 str17 = "m s^-1 / (m s)"
-# TODO: "(m s) (s)"
+str18 = "(m s) (s)"
+str19 = "(m)^2"
+str20 = "(m)(s)(s)"
 
 @testset "Constructors and helper functions" begin
     @test uparse(parse_units(str1)) |> string == "m"
@@ -85,5 +88,7 @@ str17 = "m s^-1 / (m s)"
     @test uparse(parse_units(str15)) |> string == "s^4 m^-2"
     @test uparse(parse_units(str16)) |> string == "s^4 m^-2"
     @test uparse(parse_units(str17)) |> string == "s^-2"
-
+    @test uparse(parse_units(str18)) |> string == "m s^2"
+    @test uparse(parse_units(str19)) |> string == "m^2"
+    @test uparse(parse_units(str20)) |> string == "m s^2"
 end
