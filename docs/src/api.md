@@ -68,6 +68,7 @@ Var.squared_error
 Var.global_mse
 Var.global_rmse
 Var.shift_to_start_of_previous_month
+Var.shift_by_years
 Var.apply_landmask
 Var.apply_oceanmask
 Base.replace(var::OutputVar, old_new::Pair...)

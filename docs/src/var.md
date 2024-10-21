@@ -111,7 +111,7 @@ of the previous month. After applying this function, the start date in the attri
 corresponds to the first element in the time array.
 
 ```@julia beginning
-sim_var = shift_to_start_of_previous_month(sim_var)
+sim_var = ClimaAnalysis.shift_to_start_of_previous_month(sim_var)
 ```
 
 This function is helpful in ensuring consistency in dates between simulation and
@@ -120,6 +120,9 @@ instance, suppose that data on 2010-02-01 in `sim_var` corresponds to the monthl
 average for January. This function shifts the times so that 2010-01-01 will correspond to
 the monthly average for January.
 
+As of now, a list of functions that can be used to preprocess dates and seconds are:
+1. `ClimaAnalysis.shift_to_start_of_previous_month(var::OutputVar)`
+2. `ClimaAnalysis.shift_by_years(var::OutputVar, years)`
 
 ## Integration
 

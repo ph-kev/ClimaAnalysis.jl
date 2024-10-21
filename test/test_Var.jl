@@ -1535,6 +1535,25 @@ end
     )
 end
 
+@testset "Shift by years" begin
+    time_arr = [
+        Dates.DateTime("2010-02-01T00:00:00"),
+        Dates.DateTime("2010-03-01T00:02:00"),
+        Dates.DateTime("2010-04-01T00:02:00"),
+    ]
+    data = ones(length(time_arr))
+    dims = OrderedDict("time" => time_arr)
+    dim_attribs = OrderedDict("time" => Dict("blah" => "blah"))
+    attribs =
+        Dict("long_name" => "idk", "short_name" => "short", "units" => "kg")
+    var = ClimaAnalysis.OutputVar(attribs, dims, dim_attribs, data)
+    var_s = ClimaAnalysis.Var._dates_to_seconds(var)
+    var_times = ClimaAnalysis.shift_by_years(var_s, 1)
+
+    @test ClimaAnalysis.times(var_times) == [0.0, 2.41932e6, 5.09772e6]
+    @test var_times.attributes["start_date"] == "2009-02-01T00:00:00"
+end
+
 @testset "Land and ocean masks" begin
     # Order of dimensions should not matter
     lat = collect(range(-89.5, 89.5, 180))

@@ -54,6 +54,7 @@ export OutputVar,
     global_rmse,
     set_units,
     shift_to_start_of_previous_month,
+    shift_by_years,
     apply_landmask,
     apply_oceanmask,
     replace
@@ -1558,6 +1559,45 @@ Note that this function only works for the time dimension and will not work for 
 dimension.
 """
 function shift_to_start_of_previous_month(var::OutputVar)
+    shift_to_start_of_previous_month(date_arr) =
+        date_arr .|> Dates.firstdayofmonth .|> date -> date - Dates.Month(1)
+    return _shift_to_generic_vec(
+        var::OutputVar,
+        shift_to_start_of_previous_month,
+    )
+end
+
+"""
+    shift_by_years(var::OutputVar, years)
+
+Shift the times in the time dimension ahead by `years` years.
+
+After applying this function, the start date in the attributes correspond to the first
+element in the time array.
+
+Note that this function only works for the time dimension and will not work for the date
+dimension.
+"""
+function shift_by_years(var::OutputVar, years)
+    shift_by_years(date_arr) = date_arr .|> date -> date - Dates.Year(years)
+    return _shift_to_generic_vec(var::OutputVar, shift_by_years)
+end
+
+"""
+    _shift_to_generic_vec(var::OutputVar, shift_by_vec_func)
+
+Shift the times in the time dimension by applying `shift_by_vec_func`.
+
+The function `shift_by_vec_func` takes in a vector of `Dates.DateTime` objects and return a
+vector of `Dates.DateTime` objects.
+
+After applying this function, the start date in the attributes correspond to the first
+element in the time array.
+
+Note that this function only works for the time dimension and will not work for the date
+dimension.
+"""
+function _shift_to_generic_vec(var::OutputVar, shift_by_vec_func)
     # Check if time dimension exists, floats are in the array, and unit of data is
     # second
     has_time(var) || error("Time is not a dimension of var")
@@ -1571,13 +1611,12 @@ function shift_to_start_of_previous_month(var::OutputVar)
         Dates.DateTime.(var.attributes["start_date"])
 
     # Apply transformations (find first day of month and subtract one month)
-    date_arr .=
-        date_arr .|> Dates.firstdayofmonth .|> date -> date - Dates.Month(1)
+    date_arr .= shift_by_vec_func(date_arr)
 
     # Check for duplicate dates
     unique_dates = unique(date_arr)
     unique_dates != date_arr && error(
-        "Dates are not unique after applying shift_to_start_of_previous_month",
+        "Dates are not unique after applying $(nameof(shift_by_vec_func))",
     )
 
     # Convert from dates to seconds

@@ -55,6 +55,15 @@ the data. The function `replace` can be used to replace `missing` or `NaN` value
 ClimaAnalysis.replace(var, NaN => 0.0, missing => 0.0)
 ```
 
+### More date processing functions
+In addition to `shift_to_start_of_previous_month`, there is now `shift_by_years`.
+
+```julia
+new_var = ClimaAnalysis.shift_by_years(var::OutputVar, 1)` # shift the dates by one year ahead
+```
+
+
+
 ## Bug fixes
 - Masking now affects the colorbar.
 - `Var.shift_to_start_of_previous_month` now checks for duplicate dates and throws an error
