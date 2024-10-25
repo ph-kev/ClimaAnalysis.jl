@@ -1,6 +1,15 @@
 using Unitful
 using Test
-function parse_units(expr::AbstractString)
+function _format_for_unitful(expr::AbstractString)
+    # Check that parentheses are balanced
+    count_parenthesis = 0
+    for char in expr
+        char == "(" && (count_parenthesis += 1)
+        char == ")" && (count_parenthesis -= 1)
+        count_parenthesis < 0 && error("Parentheses are not balanced")
+    end
+    count_parenthesis != 0 && error("Parentheses are not balanced")
+
     num_left = count('(', expr)
     num_right = count(')', expr)
     num_left != num_right && return error(
@@ -12,22 +21,22 @@ function parse_units(expr::AbstractString)
     result = String[]  # To store the final result
 
     for match in matches
-        # Get the matched string
         t = match.match
-
+        # Deal with cases that look like: (m * s)^-2
         if startswith(t, "(") && endswith(t, r"\)\^[-]?\d+")
             # Remove parentheses and ^ and recurse
             index = findlast(')', t)
             str = t[(begin + 1):(index - 1)]
-            inner_fixed = "(" * parse_units(str) * t[index:end]
+            inner_fixed = "(" * _format_for_unitful(str) * t[index:end]
             push!(result, inner_fixed)
+        # Deal with cases that look like: (m * s)
         elseif startswith(t, "(") && endswith(t, ")")
             # Remove parentheses and recurse
             inner_str = t[(begin + 1):(end - 1)]
-            inner_fixed = "(" * parse_units(inner_str) * ")"
+            inner_fixed = "(" * _format_for_unitful(inner_str) * ")"
             push!(result, inner_fixed)
+        # Deal with cases that look like m, s^-1, *, /
         else
-            # Add the match itself (like "m", "s^-1", "/")
             push!(result, t)
         end
     end
@@ -70,25 +79,34 @@ str18 = "(m s) (s)"
 str19 = "(m)^2"
 str20 = "(m)(s)(s)"
 
+# Negative cases - should not be parseable
+nstr1 = "(m"
+nstr2 = "m)"
+nstr3 = "W-2"
+
 @testset "Constructors and helper functions" begin
-    @test uparse(parse_units(str1)) |> string == "m"
-    @test uparse(parse_units(str2)) |> string == "m"
-    @test uparse(parse_units(str3)) |> string == "m s"
-    @test uparse(parse_units(str4)) |> string == "m s"
-    @test uparse(parse_units(str5)) |> string == "m s^2"
-    @test uparse(parse_units(str6)) |> string == "m s"
-    @test uparse(parse_units(str7)) |> string == "m s^2"
-    @test uparse(parse_units(str8)) |> string == "m s^-1"
-    @test uparse(parse_units(str9)) |> string == "m s"
-    @test uparse(parse_units(str10)) |> string == "m"
-    @test uparse(parse_units(str11)) |> string == "m^2"
-    @test uparse(parse_units(str12)) |> string == "m^2 s"
-    @test uparse(parse_units(str13)) |> string == "m^2 s^2"
-    @test uparse(parse_units(str14)) |> string == "s^2 m^-2"
-    @test uparse(parse_units(str15)) |> string == "s^4 m^-2"
-    @test uparse(parse_units(str16)) |> string == "s^4 m^-2"
-    @test uparse(parse_units(str17)) |> string == "s^-2"
-    @test uparse(parse_units(str18)) |> string == "m s^2"
-    @test uparse(parse_units(str19)) |> string == "m^2"
-    @test uparse(parse_units(str20)) |> string == "m s^2"
+    @test uparse(_format_for_unitful(str1)) |> string == "m"
+    @test uparse(_format_for_unitful(str2)) |> string == "m"
+    @test uparse(_format_for_unitful(str3)) |> string == "m s"
+    @test uparse(_format_for_unitful(str4)) |> string == "m s"
+    @test uparse(_format_for_unitful(str5)) |> string == "m s^2"
+    @test uparse(_format_for_unitful(str6)) |> string == "m s"
+    @test uparse(_format_for_unitful(str7)) |> string == "m s^2"
+    @test uparse(_format_for_unitful(str8)) |> string == "m s^-1"
+    @test uparse(_format_for_unitful(str9)) |> string == "m s"
+    @test uparse(_format_for_unitful(str10)) |> string == "m"
+    @test uparse(_format_for_unitful(str11)) |> string == "m^2"
+    @test uparse(_format_for_unitful(str12)) |> string == "m^2 s"
+    @test uparse(_format_for_unitful(str13)) |> string == "m^2 s^2"
+    @test uparse(_format_for_unitful(str14)) |> string == "s^2 m^-2"
+    @test uparse(_format_for_unitful(str15)) |> string == "s^4 m^-2"
+    @test uparse(_format_for_unitful(str16)) |> string == "s^4 m^-2"
+    @test uparse(_format_for_unitful(str17)) |> string == "s^-2"
+    @test uparse(_format_for_unitful(str18)) |> string == "m s^2"
+    @test uparse(_format_for_unitful(str19)) |> string == "m^2"
+    @test uparse(_format_for_unitful(str20)) |> string == "m s^2"
+
+    @test_throws ErrorException uparse(_format_for_unitful(nstr1)) |> string
+    @test_throws ErrorException uparse(_format_for_unitful(nstr2)) |> string
+    @test_throws MethodError uparse(_format_for_unitful(nstr3)) |> string
 end
