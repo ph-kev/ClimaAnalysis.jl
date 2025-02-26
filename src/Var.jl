@@ -1066,7 +1066,17 @@ Check if the number, name, and unit of dimensions in `x` and `y` are consistent.
 
 If the unit for a dimension is missing, then the unit is not consistent for that dimension.
 """
-function _check_dims_consistent(x::OutputVar, y::OutputVar)
+function _check_dims_consistent(x::OutputVar, y::OutputVar; dim_names = nothing)
+    x_dims = x.dims
+    y_dims = y.dims
+    if !isnothing(dim_names)
+        # Keep the dimensions we only care about
+        dim_names = conventional_dim_name.(dim_names)
+        keep_dim_name(dim_name) = conventional_dim_name(dim_name) in dim_names
+        x_dims = filter(dim_name -> keep_dim_name(dim_name), x_dims)
+        y_dims = filter(dim_name -> keep_dim_name(dim_name), y_dims)
+    end
+
     # Check if the number of dimensions is the same
     x_num_dims = length(x.dims)
     y_num_dims = length(y.dims)
@@ -1159,8 +1169,35 @@ end
 Resample `data` in `src_var` to `dims` in `dest_var`.
 
 The resampling performed here is a 1st-order linear resampling.
+
+If the iterable `dim_names` is nothing, then resampling is done over all
+dimensions. Otherwise, resampling is done over the dimensions in `dim_names`. If
+resampling is done over all dimensions, then reordering is automatically done.
 """
-function resampled_as(src_var::OutputVar, dest_var::OutputVar)
+function resampled_as(
+    src_var::OutputVar,
+    dest_var::OutputVar,
+    dim_names = nothing,
+)
+    # If dim_names is nothing, then resample over all dimensions
+    if isnothing(dim_names)
+        return _resampled_as_all(src_var, dest_var)
+    end
+
+    # If the dimensions are the same between both OutputVars and dim_names are the same as
+    # well, then resample over all dimensions
+    src_var_dim_names = Set(conventional_dim_name.(keys(src_var.dims)))
+    dest_var_dim_names = Set(conventional_dim_name.(keys(dest_var.dims)))
+    dim_names = Set(conventional_dim_name.(dim_names))
+    if (src_var_dim_names == dest_var_dim_names) &&
+       (src_var_dim_names == dim_names)
+        return _resampled_as_all(src_var, dest_var)
+    end
+
+    return _resampled_as_partial(src_var, dest_var, dim_names)
+end
+
+function _resampled_as_all(src_var::OutputVar, dest_var::OutputVar)
     src_var = reordered_as(src_var, dest_var)
     _check_dims_consistent(src_var, dest_var)
 
@@ -1168,7 +1205,7 @@ function resampled_as(src_var::OutputVar, dest_var::OutputVar)
     src_resampled_data =
         [itp(pt...) for pt in Base.product(values(dest_var.dims)...)]
 
-    # Construct new OutputVar to return
+    # Make new dimensions for OutputVar
     src_var_ret_dims = empty(src_var.dims)
 
     # Loop because names could be different in src_var compared to dest_var
@@ -1176,6 +1213,60 @@ function resampled_as(src_var::OutputVar, dest_var::OutputVar)
     for (dim_name, dim_data) in zip(keys(src_var.dims), values(dest_var.dims))
         src_var_ret_dims[dim_name] = copy(dim_data)
     end
+    return remake(src_var, dims = src_var_ret_dims, data = src_resampled_data)
+end
+
+
+
+"""
+    resampled_as_partial(src_var::OutputVar, dest_var::OutputVar, dim_names...)
+
+Resample `data` in `src_var` to `dim_names` in `dest_var`.
+
+Dimensions are not reordered in `src_var` to match the order of the dimensions
+in `dest_var` because the dimensions in `dest_var` and `src_var` respectively
+are not necessarily the same. If the dimensions are the same, reordering is
+automatically done.
+"""
+function _resampled_as_partial(
+    src_var::OutputVar,
+    dest_var::OutputVar,
+    dim_names,
+)
+    # Determine if dim_names are in both dest_var and src_var
+    src_var_dim_names = conventional_dim_name.(keys(src_var.dims))
+    dest_var_dim_names = conventional_dim_name.(keys(dest_var.dims))
+    dim_names = conventional_dim_name.(dim_names)
+    for dim_name in dim_names
+        dim_name in src_var_dim_names || error(
+            "Cannot find $dim_name in the dimension names of src_var ($src_var_dim_names)",
+        )
+        dim_name in dest_var_dim_names || error(
+            "Cannot find $dim_name in the dimension names of dest_var ($dest_var_dim_names)",
+        )
+    end
+
+    # Unit checking
+    _check_dims_consistent(src_var, dest_var, dim_names = dim_names)
+
+    # Build grid to resample over
+    src_var_ret_dims = empty(src_var.dims)
+    for (dim_name, dim) in src_var.dims
+        if conventional_dim_name(dim_name) in dim_names
+            corresponding_dim_name =
+                find_corresponding_dim_name(dim_name, keys(dest_var.dims))
+            src_var_ret_dims[dim_name] =
+                copy(dest_var.dims[corresponding_dim_name])
+        else
+            src_var_ret_dims[dim_name] = copy(dim)
+        end
+    end
+
+    # Resample
+    itp = _make_interpolant(src_var.dims, src_var.data)
+    src_resampled_data =
+        [itp(pt...) for pt in Base.product(values(src_var_ret_dims)...)]
+
     return remake(src_var, dims = src_var_ret_dims, data = src_resampled_data)
 end
 
